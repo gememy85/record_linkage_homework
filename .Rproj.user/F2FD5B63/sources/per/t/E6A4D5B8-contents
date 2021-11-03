@@ -1,0 +1,91 @@
+library(tidyverse)
+
+###
+### load dataset
+###
+
+A <- read.table('FileA.csv',header=T,sep=',') 
+B <- read.table('FileB.csv', header=T, sep=',')
+
+
+# select matching keys
+A <- A %>% select(c(firstname, lastname, streetname, birthyear))
+B <- B %>% select(c(firstname, lastname, streetname, birthyear))
+
+
+# make gamma + gi matrix
+gamma_gi_matrix <- matrix(nrow=(nrow(A)*nrow(B)), ncol=ncol(A))
+
+# calculate matching score
+calculate.match.gamma <- function(record1, record2)
+{
+  result = (record1 == record2) * 1
+  return(as.vector(result))
+}
+
+
+for(i in 1:nrow(A)){
+  for(j in 1:nrow(B)){
+    gamma_gi_matrix[(i-1)*nrow(B)+j,1:4]<- calculate.match.gamma(A[i,], B[j,])
+  }
+}
+
+
+agreement_pattern <- gamma_gi_matrix %>% unique()
+agreement_pattern
+
+###
+### EM approach
+###
+
+# Initialize the values
+
+N = nrow(gamma_gi_matrix)
+
+m1=0.5
+m2=0.5
+m3=0.5
+m4=0.5
+
+u1=0.5
+u2=0.5
+u3=0.5
+u4=0.5
+
+p=0.2
+
+v1 = gamma_gi_matrix[,1]
+v2 = gamma_gi_matrix[,2]
+v3 = gamma_gi_matrix[,3]
+v4 = gamma_gi_matrix[,4]
+
+eta <- c(p, m1, m2, m3, m4, u1, u2, u3, u4)
+
+
+# implement EM
+repeat{
+  
+  eta0 <- eta
+  term1 = p*dbinom(v1,size = 1,prob = m1)*dbinom(v2,size=1,prob=m2)*dbinom(v3,size=1,prob=m3)*dbinom(v4,size=1,prob=m4)
+  term2 = (1-p)*dbinom(v1,size=1,prob=u1)*dbinom(v2,size=1,prob=u2)*dbinom(v3,size=1,prob=u3)*dbinom(v4,size=1,prob=u4)
+  
+  g_vector = term1 / (term1 + term2)
+  logL = sum(g_vector*log(term1) + (1-g_vector)*log(term2))
+  # update parameters
+  p = sum(g_vector) / N
+  m1 = sum(g_vector*v1) / sum(g_vector)
+  m2 = sum(g_vector*v2) / sum(g_vector)
+  m3 = sum(g_vector*v3) / sum(g_vector)
+  m4 = sum(g_vector*v4) / sum(g_vector)
+  
+  u1 = sum((1-g_vector)*v1) / sum(g_vector)
+  u2 = sum((1-g_vector)*v2) / sum(g_vector)
+  u3 = sum((1-g_vector)*v3) / sum(g_vector)
+  u4 = sum((1-g_vector)*v4) / sum(g_vector)
+  
+  eta <- c(p, m1, m2, m3, m4, u1, u2, u3, u4)
+  print(c(eta, logL))
+  diff <- (eta0 - eta)^2
+  if(sum(diff) < 1e-6) break
+}
+

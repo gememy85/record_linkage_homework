@@ -1,0 +1,118 @@
+###############
+## EM Algorithms for Membership Problem
+###############
+
+############### Case 1
+## (Gaussian Mixture with K=2: f1: N(0,1), f2: N(4,1))
+## Known density functions but unknown mixing proportions
+
+rm(list=ls()) 
+
+### Data Generation
+# n: sample size (n1- sample size of group 1; n2 - sample size of group 2)
+# z: membership indicator (assume 2 groups)
+# y|z conditional distribution follows a normal distributions 
+n=10000
+set.seed(1004)
+z=rbinom(n,1,0.8) # z=1 y~f1; z=0 -> y~f2
+
+y=vector(length=n)
+n1=sum(z)
+n2=n-sum(z)
+
+y[(z==1)]=rnorm(n1,0,1) # z is the same size as y thus we put n1 values that matches with z == 1
+y[(z==0)]=rnorm(n2,4,1)
+
+
+
+plot(density(y),main="Normal Mixture (unknown mixing proportions)",xlab="y")
+
+### Itertaion with initial value
+pi=0.5  # equal ratio
+
+### repeat{ break}: iteration of E-step and M-step 
+repeat{
+pi0=pi
+
+######## E-step
+## log complete-data likelihood 
+## In this example, this log likelihood function is not used for parameter estimation.
+logL=sum(log(pi*dnorm(y,0,1)+(1-pi)*dnorm(y,4,1)))
+# Unobserved z is replaced with conditional expected value
+# E(z | y, pi^{(t)})=P(z=1 | y, pi^{t})=P(y|z=1)P(z=1; pi^{(t)}) / f(y, pi^{t})
+# f(y)=f(y|z=1)P(z=1)+f(y|z=0)P(z=0)
+term1=pi*dnorm(y,0,1)
+term2=(1-pi)*dnorm(y,4,1)
+z=term1/(term1+term2)
+
+######## M-step
+# Cell probability is computed as a relative frequency
+pi=sum(z)/n
+
+## Convergence criteria
+diff=abs(pi0-pi)
+print(c(pi,logL))
+if(sum(diff)<1e-6) break}
+pi
+
+
+############### Case 2
+## (Gaussian Mixture with K=2: f1: N(0,1), f2: N(4,1))
+## Unknown density functions and unknown mixing proportions
+## Need to estimate the model parameters.
+
+rm(list=ls()) 
+
+### Data Generation
+# n: sample size (n1- sample size of group 1; n2 - sample size of group 2)
+# z: membership indicator (assume 2 groups)
+# y|z conditional distribution follows a normal distributions 
+n=1000
+set.seed(1004)
+z=rbinom(n,1,0.8)
+
+y=vector(length=n)
+n1=sum(z)
+n2=n-sum(z)
+
+y[(z==1)]=rnorm(n1,0,1)
+y[(z==0)]=rnorm(n2,4,1)
+
+plot(density(y),main="Normal Mixture (unknown mixing proportions)",xlab="y")
+
+
+### Itertaion with initial value
+pi=0.5 # equal ratio
+mu1=-1 # assume arbitrary number
+mu2=6  # assume arbitrary number
+sig2=var(y) # variance of y
+
+eta=c(pi,mu1,mu2,sig2)
+### repeat{ break}: iteration of E-step and M-step 
+repeat{
+eta0=eta
+
+######## E-step
+## log complete-data likelihood 
+## In this example, this log likelihood function is not used for parameter estimation.
+logL=sum(log(pi*dnorm(y,mu1,sd=sqrt(sig2))+(1-pi)*dnorm(y,mu2,sd=sqrt(sig2))))
+# Unobserved z is replaced with conditional expected value
+# E(z | y, pi^{(t)})=P(z=1 | y, pi^{t})=P(y|z=1)P(z=1; pi^{(t)}) / f(y, pi^{t})
+# f(y)=f(y|z=1)P(z=1)+f(y|z=0)P(z=0)
+term1=pi*dnorm(y,mu1,sd=sqrt(sig2))
+term2=(1-pi)*dnorm(y,mu2,sd=sqrt(sig2))
+z=term1/(term1+term2)
+term1
+######## M-step
+## M-step
+pi=sum(z)/n
+mu1=sum(z*y)/sum(z)
+mu2=sum((1-z)*y)/sum((1-z))
+sig2=sum(z*(y-mu1)^2+(1-z)*(y-mu2)^2)/n
+eta=c(pi,mu1,mu2,sig2)
+
+## Convergence criteria
+diff=(eta0-eta)^2
+print(c(eta,logL))
+if(sum(diff)<1e-6) break}
+eta
